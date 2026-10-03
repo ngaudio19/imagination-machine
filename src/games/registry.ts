@@ -16,5 +16,21 @@ export const games: GameDefinition[] = [
     description: "Answer fast. Turn knowledge into rocket fuel.",
     minPlayers: 2,
     maxPlayers: 2
+  },
+  {
+    id: "safecracker",
+    title: "Safecracker",
+    shortTitle: "SAFE",
+    description: "Work together. Spin the dials. Crack the vault.",
+    minPlayers: 2,
+    maxPlayers: 2
+  },
+  {
+    id: "hot-potato",
+    title: "Hot Potato",
+    shortTitle: "POTATO",
+    description: "Find it. Smack it. Toss it before it blows.",
+    minPlayers: 2,
+    maxPlayers: 2
   }
 ];

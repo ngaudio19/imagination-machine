@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import type { PlayerProfile } from "../../core/types";
 import { COLOR_HEX } from "../../core/avatars";
 import { hardwareBridge } from "../../core/controllers";
+import { audioEngine } from "../../core/audio";
 import { HOT_POTATO_ROUNDS, nextFuseMs, nextPotatoButton } from "./game";
 
 type Phase = "play" | "boom" | "finish";
@@ -12,8 +13,9 @@ export function HotPotato({ players, onExit }: { players: PlayerProfile[]; onExi
   const [holderDeck, setHolderDeck] = useState(() => Math.floor(Math.random() * 2));
   const [hotButton, setHotButton] = useState(() => nextPotatoButton());
   const [scores, setScores] = useState<[number, number]>([0, 0]);
-  const [fuseMs, setFuseMs] = useState(() => nextFuseMs(1));
-  const [remainingMs, setRemainingMs] = useState(() => nextFuseMs(1));
+  const initialFuse = useRef(nextFuseMs(1));
+  const [fuseMs, setFuseMs] = useState(initialFuse.current);
+  const [remainingMs, setRemainingMs] = useState(initialFuse.current);
   const startRef = useRef(performance.now());
   const explodedRef = useRef(false);
 
@@ -49,6 +51,7 @@ export function HotPotato({ players, onExit }: { players: PlayerProfile[]; onExi
         if (event.deckIndex !== holderDeck) return;
         if (event.keyIndex !== hotButton) return;
 
+        audioEngine.play("toss");
         setHolderDeck((current) => (current === 0 ? 1 : 0));
         setHotButton((current) => nextPotatoButton(current));
       }),
@@ -66,6 +69,7 @@ export function HotPotato({ players, onExit }: { players: PlayerProfile[]; onExi
       if (left <= 0 && !explodedRef.current) {
         explodedRef.current = true;
         const winner = holderDeck === 0 ? 1 : 0;
+        audioEngine.play("boom");
         setScores((current) => {
           const next = [...current] as [number, number];
           next[winner] += 1;
@@ -83,6 +87,7 @@ export function HotPotato({ players, onExit }: { players: PlayerProfile[]; onExi
 
     const timer = window.setTimeout(() => {
       if (round >= HOT_POTATO_ROUNDS) {
+        audioEngine.play("win");
         setPhase("finish");
       } else {
         startRound(round + 1);

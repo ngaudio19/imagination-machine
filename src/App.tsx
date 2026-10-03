@@ -6,9 +6,11 @@ import { loadPlayers, savePlayers } from "./core/storage";
 import { games } from "./games/registry";
 import { MoonMunch } from "./games/moon-munch/MoonMunch";
 import { PlanetTrivia } from "./games/planet-trivia/PlanetTrivia";
+import { Safecracker } from "./games/safecracker/Safecracker";
+import { HotPotato } from "./games/hot-potato/HotPotato";
 import { PixelAvatar } from "./components/PixelAvatar";
 
-type Screen = "lobby" | "builder" | "menu" | "moon-munch" | "planet-trivia";
+type Screen = "lobby" | "builder" | "menu" | "moon-munch" | "planet-trivia" | "safecracker" | "hot-potato";
 
 type BuilderState = {
   deckIndex: number;
@@ -68,7 +70,7 @@ function App() {
       return;
     }
 
-    if (screen === "moon-munch" || screen === "planet-trivia") {
+    if (screen === "moon-munch" || screen === "planet-trivia" || screen === "safecracker" || screen === "hot-potato") {
       setScreen("menu");
       return;
     }
@@ -251,6 +253,8 @@ function App() {
       if (event.type !== "key") return;
       if (event.keyIndex === 0) setScreen("moon-munch");
       if (event.keyIndex === 1) setScreen("planet-trivia");
+      if (event.keyIndex === 2) setScreen("safecracker");
+      if (event.keyIndex === 3) setScreen("hot-potato");
     });
   }, [screen]);
 
@@ -278,6 +282,14 @@ function App() {
 
   if (screen === "planet-trivia" && selectedPlayers.length === 2) {
     return <PlanetTrivia players={selectedPlayers} onExit={() => setScreen("menu")} />;
+  }
+
+  if (screen === "safecracker" && selectedPlayers.length === 2) {
+    return <Safecracker players={selectedPlayers} onExit={() => setScreen("menu")} />;
+  }
+
+  if (screen === "hot-potato" && selectedPlayers.length === 2) {
+    return <HotPotato players={selectedPlayers} onExit={() => setScreen("menu")} />;
   }
 
   if (screen === "builder" && builder) {
@@ -334,7 +346,7 @@ function App() {
         <div>
           <p className="eyebrow">THE</p>
           <h1>IMAGINATION MACHINE</h1>
-          <p className="tagline">INSERT HUMANS · MAKE MISCHIEF · BUILD 0.3</p>
+          <p className="tagline">INSERT HUMANS · MAKE MISCHIEF · BUILD 0.4</p>
         </div>
       </header>
 
@@ -401,7 +413,9 @@ function App() {
             {games.map((game, index) => (
               <button className={`game-card game-card-${game.id}`} onClick={() => setScreen(game.id as Screen)} key={game.id}>
                 <span className="game-number">GAME {index + 1}</span>
-                <span className={game.id === "moon-munch" ? "moon-face" : "planet-menu-icon"}>{game.id === "moon-munch" ? "☾" : "●"}</span>
+                <span className={`game-menu-icon game-menu-icon-${game.id}`}>
+                  {game.id === "moon-munch" ? "☾" : game.id === "planet-trivia" ? "●" : game.id === "safecracker" ? "▣" : "●"}
+                </span>
                 <strong>{game.title.toUpperCase()}</strong>
                 <span>{game.description}</span>
               </button>

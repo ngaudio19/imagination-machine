@@ -1,8 +1,6 @@
-# Mac development setup
+# Mac setup
 
-## One-time setup
-
-Clone the repository into the Desktop folder you want to use:
+## One-time clone
 
 ```bash
 cd ~/Desktop
@@ -10,23 +8,11 @@ git clone https://github.com/ngaudio19/imagination-machine.git
 cd imagination-machine
 ```
 
-Then run:
+Node 24 is recommended for the controller stack.
 
-```bash
-bash scripts/setup-mac.sh
-```
+## Start Imagination Machine
 
-## Start the shared-screen app
-
-```bash
-npm run dev
-```
-
-Vite will print the local address. Open it on the MacBook.
-
-## Pull future changes
-
-When a new version is pushed here:
+Quit the normal Elgato Stream Deck desktop app first, then:
 
 ```bash
 cd ~/Desktop/imagination-machine
@@ -35,18 +21,21 @@ npm install
 npm run dev
 ```
 
-Most ordinary UI/game changes should only require `git pull` and restarting the app.
+Vite prints the shared-screen URL. Open it in the Mac browser.
 
-## Current state
+## Normal update routine
 
-The app currently includes:
+Future game/UI updates should normally be:
 
-- persistent Cora / Mae / Cole profiles
-- color + avatar customization
-- two-player selection
-- modular game registry
-- Moon Munch
-- simulated private Stream Deck+ displays
-- dark, bright, pixel-forward visual system
+```bash
+git pull
+npm install
+npm run dev
+```
 
-The real Stream Deck bridge is the next implementation milestone.
+## Current games
+
+- Moon Munch: 10 timed, automatic rounds with private snack choices and monster craving hints.
+- Planet Trivia: 10 automatic questions with speed-based rocket fuel and no wrong-answer penalty.
+
+The physical controllers are driven directly from `bridge/streamdeck.ts`; no manual Stream Deck profiles are needed.

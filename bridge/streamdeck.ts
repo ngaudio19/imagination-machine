@@ -1,6 +1,6 @@
 import { listStreamDecks, openStreamDeck, type StreamDeck } from "@elgato-stream-deck/node";
 import sharp from "sharp";
-import { WebSocketServer, type WebSocket } from "ws";
+import { WebSocket, WebSocketServer } from "ws";
 
 const PORT = 3210;
 const SNACKS = [
@@ -57,7 +57,7 @@ console.log(`[bridge] listening at ws://127.0.0.1:${PORT}`);
 function broadcast(message: unknown) {
   const payload = JSON.stringify(message);
   for (const client of clients) {
-    if (client.readyState === client.OPEN) client.send(payload);
+    if (client.readyState === WebSocket.OPEN) client.send(payload);
   }
 }
 
@@ -72,10 +72,10 @@ function sendStatus(socket?: WebSocket) {
   });
 
   if (socket) {
-    if (socket.readyState === socket.OPEN) socket.send(message);
+    if (socket.readyState === WebSocket.OPEN) socket.send(message);
   } else {
     for (const client of clients) {
-      if (client.readyState === client.OPEN) client.send(message);
+      if (client.readyState === WebSocket.OPEN) client.send(message);
     }
   }
 }

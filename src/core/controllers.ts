@@ -1,3 +1,5 @@
+import type { PlayerAccessory, PlayerAvatar } from "./types";
+
 export type HardwareDeck = {
   index: number;
   serial: string;
@@ -11,14 +13,32 @@ export type HardwareEvent =
   | { type: "dial-down"; deckIndex: number; dialIndex: number }
   | { type: "touch"; deckIndex: number; x: number; y: number };
 
+export type DeckProfile = {
+  id: string;
+  name: string;
+  color: string;
+  avatar: PlayerAvatar;
+  accessory: PlayerAccessory;
+};
+
 export type LobbyRenderMessage = {
   type: "lobby";
-  players: Array<{ name: string; color: string }>;
+  profiles: DeckProfile[];
+  selections: Array<string | null>;
+  ready: boolean[];
+};
+
+export type BuilderRenderMessage = {
+  type: "builder";
+  activeDeck: number;
+  stage: "species" | "color" | "accessory";
+  page: number;
+  profile: DeckProfile;
 };
 
 export type MenuRenderMessage = {
   type: "menu";
-  players: Array<{ name: string; color: string }>;
+  players: DeckProfile[];
 };
 
 export type MoonMunchRenderMessage = {
@@ -47,6 +67,7 @@ export type PlanetTriviaRenderMessage = {
 
 export type HardwareRenderMessage =
   | LobbyRenderMessage
+  | BuilderRenderMessage
   | MenuRenderMessage
   | MoonMunchRenderMessage
   | PlanetTriviaRenderMessage;

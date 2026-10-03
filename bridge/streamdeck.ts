@@ -106,6 +106,27 @@ type ClientMessage =
         fuel: number;
         maxFuel: number;
       }>;
+    }
+  | {
+      type: "safecracker";
+      phase: "cracking" | "open" | "failed" | "finish";
+      round: number;
+      secondsLeft: number;
+      target: [number, number, number, number];
+      digits: [number, number, number, number];
+      locked: [boolean, boolean, boolean, boolean];
+      safesCracked: number;
+      players: DeckProfile[];
+    }
+  | {
+      type: "hot-potato";
+      phase: "play" | "boom" | "finish";
+      round: number;
+      holderDeck: number;
+      hotButton: number;
+      fuseRatio: number;
+      scores: [number, number];
+      players: DeckProfile[];
     };
 
 type DeckEntry = {
@@ -140,7 +161,7 @@ wss.on("connection", (socket) => {
   socket.on("close", () => clients.delete(socket));
 });
 
-console.log(`[bridge] Imagination Machine v0.3 · listening at ws://127.0.0.1:${PORT}`);
+console.log(`[bridge] Imagination Machine v0.4 · listening at ws://127.0.0.1:${PORT}`);
 
 function broadcast(message: unknown) {
   const payload = JSON.stringify(message);
@@ -289,8 +310,12 @@ async function renderAll() {
           await renderMenu(deckIndex, lastState);
         } else if (lastState.type === "moon-munch") {
           await renderMoonMunch(deckIndex, lastState);
-        } else {
+        } else if (lastState.type === "planet-trivia") {
           await renderPlanetTrivia(deckIndex, lastState);
+        } else if (lastState.type === "safecracker") {
+          await renderSafecracker(deckIndex, lastState);
+        } else {
+          await renderHotPotato(deckIndex, lastState);
         }
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
@@ -475,6 +500,14 @@ async function renderMenu(deckIndex: number, state: Extract<ClientMessage, { typ
           label: "PLANETS",
           border: accent
         });
+      } else if (index === 2) {
+        raw = await makeSafeMenuTile(button.pixelSize.width, button.pixelSize.height, accent);
+      } else if (index === 3) {
+        raw = await makePotatoTile(button.pixelSize.width, button.pixelSize.height, {
+          hot: true,
+          label: "POTATO",
+          accent
+        });
       } else if (index === 7 && player) {
         raw = await makeAvatarTile(button.pixelSize.width, button.pixelSize.height, player, {
           selected: true,
@@ -602,6 +635,178 @@ async function renderPlanetTrivia(deckIndex: number, state: Extract<ClientMessag
         : "MISSION COMPLETE";
 
   await safeRenderFuelStrip(entry.deck, player.name.toUpperCase(), status, player.color, player.fuel, player.maxFuel);
+}
+
+
+async function renderSafecracker(deckIndex: number, state: Extract<ClientMessage, { type: "safecracker" }>) {
+  const entry = decks[deckIndex];
+  const player = state.players[deckIndex];
+  if (!entry || !player) return;
+
+  const buttons = getButtonControls(entry.deck);
+
+  await Promise.all(
+    buttons.map(async (button, index) => {
+      let raw: Buffer;
+
+      if (state.phase === "finish") {
+        raw = await makeTextTile(button.pixelSize.width, button.pixelSize.height, {
+          background: "#16110b",
+          accent: index === 6 ? "#b8db7c" : index === 7 ? "#d99162" : "#4a3a2b",
+          top: index === 6 ? "AGAIN" : index === 7 ? "GAMES" : "LOOT",
+          bottom: index === 6 ? "HEIST" : index === 7 ? "EXIT" : `${state.safesCracked}/5`
+        });
+      } else if (index < 2) {
+        const globalIndex = deckIndex * 2 + index;
+        raw = await makeSafeDialTile(button.pixelSize.width, button.pixelSize.height, {
+          digit: state.digits[globalIndex],
+          locked: state.locked[globalIndex],
+          accent: player.color,
+          label: `DIAL ${globalIndex + 1}`
+        });
+      } else {
+        raw = await makeVaultDecorTile(button.pixelSize.width, button.pixelSize.height, index, player.color);
+      }
+
+      await entry.deck.fillKeyBuffer(button.index, raw, { format: "rgb" });
+    })
+  );
+
+  await safeRenderSafecrackerStrip(entry.deck, deckIndex, state, player.color);
+}
+
+async function renderHotPotato(deckIndex: number, state: Extract<ClientMessage, { type: "hot-potato" }>) {
+  const entry = decks[deckIndex];
+  const player = state.players[deckIndex];
+  if (!entry || !player) return;
+
+  const buttons = getButtonControls(entry.deck);
+  const holding = state.holderDeck === deckIndex && state.phase === "play";
+
+  await Promise.all(
+    buttons.map(async (button, index) => {
+      let raw: Buffer;
+
+      if (state.phase === "finish") {
+        raw = await makeTextTile(button.pixelSize.width, button.pixelSize.height, {
+          background: "#17100d",
+          accent: index === 6 ? "#b8db7c" : index === 7 ? "#d99162" : "#4b342c",
+          top: index === 6 ? "AGAIN" : index === 7 ? "GAMES" : "SPUD",
+          bottom: index === 6 ? "PLAY" : index === 7 ? "EXIT" : "DONE"
+        });
+      } else if (state.phase === "boom") {
+        raw = await makeExplosionTile(button.pixelSize.width, button.pixelSize.height, {
+          loser: state.holderDeck === deckIndex,
+          accent: player.color
+        });
+      } else {
+        raw = await makePotatoTile(button.pixelSize.width, button.pixelSize.height, {
+          hot: holding && index === state.hotButton,
+          label: holding && index === state.hotButton ? "SMACK!" : holding ? "NOPE" : "WAIT",
+          accent: player.color,
+          dimmed: !holding
+        });
+      }
+
+      await entry.deck.fillKeyBuffer(button.index, raw, { format: "rgb" });
+    })
+  );
+
+  const status =
+    state.phase === "play"
+      ? holding
+        ? "FIND IT! THE FUSE IS BURNING"
+        : "GET READY · INCOMING!"
+      : state.phase === "boom"
+        ? state.holderDeck === deckIndex
+          ? "BOOM! YOU HAD IT"
+          : "SAFE! POINT TO YOU"
+        : `FINAL · ${state.scores[deckIndex]} PTS`;
+
+  await safeRenderHotPotatoStrip(entry.deck, status, player.color, state.fuseRatio, holding);
+}
+
+async function safeRenderSafecrackerStrip(
+  deck: StreamDeck,
+  deckIndex: number,
+  state: Extract<ClientMessage, { type: "safecracker" }>,
+  accent: string
+) {
+  try {
+    const lcd = deck.CONTROLS.find((control) => control.type === "lcd-segment");
+    if (!lcd) return;
+
+    const a = deckIndex * 2;
+    const b = a + 1;
+    const cells = [a, b].map((globalIndex, localIndex) => {
+      const value = state.digits[globalIndex];
+      const prev = (value + 9) % 10;
+      const next = (value + 1) % 10;
+      const locked = state.locked[globalIndex];
+      const x = localIndex === 0 ? 34 : Math.round(lcd.pixelSize.width / 2) + 18;
+      const width = Math.round(lcd.pixelSize.width / 2) - 48;
+      return `
+        <g transform="translate(${x} 0)">
+          <text x="${width / 2}" y="18" text-anchor="middle" fill="#9a8066" font-size="11" font-weight="800" font-family="monospace">DIAL ${globalIndex + 1}</text>
+          <text x="${width / 2 - 50}" y="58" text-anchor="middle" fill="#71604f" font-size="22" font-family="monospace">${prev}</text>
+          <rect x="${width / 2 - 27}" y="25" width="54" height="49" rx="5" fill="${locked ? "#365b38" : "#201811"}" stroke="${locked ? "#b8db7c" : accent}" stroke-width="3"/>
+          <text x="${width / 2}" y="61" text-anchor="middle" fill="${locked ? "#e8f6bf" : "#f5e1bc"}" font-size="34" font-weight="900" font-family="monospace">${value}</text>
+          <text x="${width / 2 + 50}" y="58" text-anchor="middle" fill="#71604f" font-size="22" font-family="monospace">${next}</text>
+          <text x="${width / 2}" y="91" text-anchor="middle" fill="${locked ? "#b8db7c" : "#a48e75"}" font-size="11" font-weight="900" font-family="monospace">${locked ? "CLICK · LOCKED" : "TURN DIAL"}</text>
+        </g>
+      `;
+    }).join("");
+
+    const svg = `
+      <svg width="${lcd.pixelSize.width}" height="${lcd.pixelSize.height}" xmlns="http://www.w3.org/2000/svg">
+        <rect width="100%" height="100%" fill="#0e0b08"/>
+        <rect x="0" y="0" width="12" height="100%" fill="${accent}"/>
+        <line x1="${lcd.pixelSize.width / 2}" y1="8" x2="${lcd.pixelSize.width / 2}" y2="${lcd.pixelSize.height - 8}" stroke="#3f3328" stroke-width="2"/>
+        ${cells}
+      </svg>
+    `;
+
+    const raw = await sharp(Buffer.from(svg)).removeAlpha().raw().toBuffer();
+    await deck.fillLcd(Number(lcd.id), raw, { format: "rgb" });
+  } catch (error) {
+    console.warn("[bridge] safe strip render skipped:", error instanceof Error ? error.message : error);
+  }
+}
+
+async function safeRenderHotPotatoStrip(
+  deck: StreamDeck,
+  status: string,
+  accent: string,
+  fuseRatio: number,
+  holding: boolean
+) {
+  try {
+    const lcd = deck.CONTROLS.find((control) => control.type === "lcd-segment");
+    if (!lcd) return;
+
+    const ratio = Math.max(0, Math.min(1, fuseRatio));
+    const trackWidth = lcd.pixelSize.width - 72;
+    const remaining = Math.round(trackWidth * ratio);
+    const emberX = 36 + remaining;
+
+    const svg = `
+      <svg width="${lcd.pixelSize.width}" height="${lcd.pixelSize.height}" xmlns="http://www.w3.org/2000/svg" shape-rendering="crispEdges">
+        <rect width="100%" height="100%" fill="#120b08"/>
+        <text x="24" y="27" fill="${holding ? "#ffd66b" : accent}" font-size="17" font-weight="900" font-family="monospace">${escapeXml(status)}</text>
+        <rect x="36" y="48" width="${trackWidth}" height="8" fill="#3b241a"/>
+        <rect x="36" y="48" width="${remaining}" height="8" fill="#d55d36"/>
+        <rect x="${emberX - 5}" y="43" width="10" height="18" fill="#ffe06d"/>
+        <rect x="${emberX - 2}" y="40" width="4" height="6" fill="#fff1aa"/>
+        <text x="24" y="88" fill="#8f7668" font-size="11" font-family="monospace">D1 BACK</text>
+        <text x="${lcd.pixelSize.width - 24}" y="88" text-anchor="end" fill="#8f7668" font-size="11" font-family="monospace">D4 HOME</text>
+      </svg>
+    `;
+
+    const raw = await sharp(Buffer.from(svg)).removeAlpha().raw().toBuffer();
+    await deck.fillLcd(Number(lcd.id), raw, { format: "rgb" });
+  } catch (error) {
+    console.warn("[bridge] potato strip render skipped:", error instanceof Error ? error.message : error);
+  }
 }
 
 function getButtonControls(deck: StreamDeck) {
@@ -768,6 +973,108 @@ async function makeSnackTile(
     </svg>
   `;
 
+  return sharp(Buffer.from(svg)).removeAlpha().raw().toBuffer();
+}
+
+
+async function makeSafeMenuTile(width: number, height: number, accent: string) {
+  const svg = `
+    <svg width="${width}" height="${height}" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" shape-rendering="crispEdges">
+      <rect width="100" height="100" fill="#100c09"/>
+      <rect x="4" y="4" width="92" height="92" fill="none" stroke="${accent}" stroke-width="4"/>
+      <rect x="20" y="17" width="60" height="58" fill="#665341"/>
+      <rect x="25" y="22" width="50" height="48" fill="#2c251e"/>
+      <rect x="34" y="30" width="32" height="32" fill="#17120f" stroke="#b79a73" stroke-width="3"/>
+      <circle cx="50" cy="46" r="11" fill="none" stroke="#d2b98f" stroke-width="4"/>
+      <rect x="48" y="34" width="4" height="24" fill="#d2b98f"/>
+      <rect x="38" y="44" width="24" height="4" fill="#d2b98f"/>
+      <rect x="8" y="79" width="84" height="14" fill="#090706"/>
+      <text x="50" y="89" text-anchor="middle" fill="#f5e1bc" font-size="8" font-weight="900" font-family="monospace">SAFE</text>
+    </svg>
+  `;
+  return sharp(Buffer.from(svg)).removeAlpha().raw().toBuffer();
+}
+
+async function makeSafeDialTile(
+  width: number,
+  height: number,
+  options: { digit: number; locked: boolean; accent: string; label: string }
+) {
+  const svg = `
+    <svg width="${width}" height="${height}" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" shape-rendering="crispEdges">
+      <rect width="100" height="100" fill="#100c09"/>
+      <rect x="5" y="5" width="90" height="90" fill="#1e1812" stroke="${options.locked ? "#b8db7c" : options.accent}" stroke-width="5"/>
+      <rect x="25" y="18" width="50" height="49" fill="${options.locked ? "#314d31" : "#080706"}"/>
+      <text x="50" y="55" text-anchor="middle" fill="${options.locked ? "#e8f6bf" : "#f4dfb9"}" font-size="39" font-weight="900" font-family="monospace">${options.digit}</text>
+      <text x="50" y="79" text-anchor="middle" fill="${options.locked ? "#b8db7c" : "#9f876c"}" font-size="7" font-weight="900" font-family="monospace">${escapeXml(options.locked ? "LOCKED" : options.label)}</text>
+    </svg>
+  `;
+  return sharp(Buffer.from(svg)).removeAlpha().raw().toBuffer();
+}
+
+async function makeVaultDecorTile(width: number, height: number, index: number, accent: string) {
+  const labels = ["GOLD", "KEY", "GEM", "MAP", "LOOT", "SHH"];
+  const label = labels[(index - 2) % labels.length];
+  const svg = `
+    <svg width="${width}" height="${height}" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" shape-rendering="crispEdges">
+      <rect width="100" height="100" fill="#0d0a08"/>
+      <rect x="5" y="5" width="90" height="90" fill="none" stroke="#403326" stroke-width="4"/>
+      <rect x="24" y="25" width="52" height="35" fill="#2a2119"/>
+      <rect x="29" y="30" width="42" height="25" fill="${index % 2 ? "#7e683e" : "#4f4250"}"/>
+      <rect x="36" y="21" width="28" height="7" fill="${accent}"/>
+      <text x="50" y="82" text-anchor="middle" fill="#8f7c67" font-size="8" font-weight="900" font-family="monospace">${label}</text>
+    </svg>
+  `;
+  return sharp(Buffer.from(svg)).removeAlpha().raw().toBuffer();
+}
+
+async function makePotatoTile(
+  width: number,
+  height: number,
+  options: { hot: boolean; label: string; accent: string; dimmed?: boolean }
+) {
+  const opacity = options.dimmed ? 0.3 : 1;
+  const svg = `
+    <svg width="${width}" height="${height}" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" shape-rendering="crispEdges">
+      <rect width="100" height="100" fill="${options.hot ? "#2a120b" : "#0b0908"}"/>
+      <g opacity="${opacity}">
+        <rect x="4" y="4" width="92" height="92" fill="none" stroke="${options.hot ? "#ffb23e" : options.accent}" stroke-width="${options.hot ? 6 : 3}"/>
+        ${options.hot ? `
+          <rect x="51" y="10" width="5" height="15" fill="#6b4a31"/>
+          <rect x="56" y="7" width="5" height="7" fill="#ff713d"/>
+          <rect x="61" y="4" width="6" height="7" fill="#ffe070"/>
+        ` : ""}
+        <rect x="25" y="24" width="50" height="46" fill="#b8753d"/>
+        <rect x="20" y="32" width="60" height="30" fill="#b8753d"/>
+        <rect x="30" y="20" width="35" height="55" fill="#c88649"/>
+        <rect x="34" y="35" width="5" height="5" fill="#704522"/>
+        <rect x="59" y="29" width="4" height="4" fill="#704522"/>
+        <rect x="53" y="53" width="6" height="5" fill="#704522"/>
+        <rect x="37" y="48" width="4" height="4" fill="#704522"/>
+        <rect x="38" y="42" width="5" height="6" fill="#12100e"/>
+        <rect x="58" y="42" width="5" height="6" fill="#12100e"/>
+        <rect x="44" y="56" width="14" height="4" fill="#12100e"/>
+        <rect x="7" y="80" width="86" height="14" fill="#090706"/>
+        <text x="50" y="90" text-anchor="middle" fill="${options.hot ? "#ffe070" : "#9a897f"}" font-size="8" font-weight="900" font-family="monospace">${escapeXml(options.label)}</text>
+      </g>
+    </svg>
+  `;
+  return sharp(Buffer.from(svg)).removeAlpha().raw().toBuffer();
+}
+
+async function makeExplosionTile(
+  width: number,
+  height: number,
+  options: { loser: boolean; accent: string }
+) {
+  const svg = `
+    <svg width="${width}" height="${height}" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" shape-rendering="crispEdges">
+      <rect width="100" height="100" fill="#160907"/>
+      <polygon points="50,8 60,30 80,18 73,40 96,43 76,55 91,74 66,69 61,94 49,72 31,91 33,66 8,72 26,53 5,41 30,38 22,16 43,29" fill="${options.loser ? "#e85a33" : "#8b6b3d"}"/>
+      <polygon points="50,21 57,38 72,30 67,46 83,49 67,57 74,72 58,66 51,82 45,65 30,74 35,57 19,50 36,45 31,30 45,38" fill="${options.loser ? "#ffe070" : options.accent}"/>
+      <text x="50" y="55" text-anchor="middle" fill="#17100d" font-size="13" font-weight="900" font-family="monospace">${options.loser ? "BOOM!" : "SAFE!"}</text>
+    </svg>
+  `;
   return sharp(Buffer.from(svg)).removeAlpha().raw().toBuffer();
 }
 

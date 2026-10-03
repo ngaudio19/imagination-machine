@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import type { PlayerAvatar, PlayerColor, PlayerProfile } from "./core/types";
-import { INITIAL_CONTROLLERS } from "./core/controllers";
+import { hardwareBridge, type HardwareDeck } from "./core/controllers";
 import { loadPlayers, savePlayers } from "./core/storage";
 import { games } from "./games/registry";
 import { resolveRound, SNACKS, type Snack } from "./games/moon-munch/game";
@@ -9,6 +9,15 @@ type Screen = "lobby" | "menu" | "moon-munch";
 type ChoiceMap = Record<string, Snack | undefined>;
 
 const COLORS: PlayerColor[] = ["violet", "cyan", "lime", "yellow", "pink", "blue"];
+const COLOR_HEX: Record<PlayerColor, string> = {
+  violet: "#9b5cff",
+  cyan: "#1ee8ff",
+  lime: "#a8ff3e",
+  yellow: "#ffe44a",
+  pink: "#ff5cb8",
+  blue: "#4b79ff"
+};
+
 const AVATARS: { id: PlayerAvatar; glyph: string }[] = [
   { id: "cat", glyph: "🐈" },
   { id: "fox", glyph: "🦊" },
@@ -23,13 +32,33 @@ function App() {
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [screen, setScreen] = useState<Screen>("lobby");
   const [editing, setEditing] = useState<string | null>(null);
+  const [hardwareDecks, setHardwareDecks] = useState<HardwareDeck[]>([]);
 
   useEffect(() => savePlayers(players), [players]);
+
+  useEffect(
+    () =>
+      hardwareBridge.subscribe((event) => {
+        if (event.type === "status") setHardwareDecks(event.decks);
+      }),
+    []
+  );
 
   const selectedPlayers = useMemo(
     () => selectedIds.map((id) => players.find((p) => p.id === id)).filter(Boolean) as PlayerProfile[],
     [selectedIds, players]
   );
+
+  useEffect(() => {
+    if (screen !== "lobby") return;
+    hardwareBridge.send({
+      type: "lobby",
+      players: selectedPlayers.map((player) => ({
+        name: player.name,
+        color: COLOR_HEX[player.color]
+      }))
+    });
+  }, [screen, selectedPlayers]);
 
   function togglePlayer(id: string) {
     setSelectedIds((current) =>
@@ -110,12 +139,15 @@ function App() {
           </div>
 
           <div className="controller-rack">
-            {INITIAL_CONTROLLERS.map((controller, index) => (
-              <div className="controller-chip" key={controller.id}>
-                <span className="status-dot" />
-                {controller.label} · {selectedPlayers[index]?.name?.toUpperCase() ?? "WAITING"}
-              </div>
-            ))}
+            {[0, 1].map((index) => {
+              const deck = hardwareDecks[index];
+              return (
+                <div className="controller-chip" key={index}>
+                  <span className={deck ? "status-dot" : "status-dot offline"} />
+                  DECK {index + 1} · {deck ? selectedPlayers[index]?.name?.toUpperCase() ?? "CONNECTED" : "OFFLINE"}
+                </div>
+              );
+            })}
           </div>
 
           <button className="primary" disabled={selectedIds.length !== 2} onClick={() => setScreen("menu")}>
@@ -157,8 +189,35 @@ function MoonMunch({ players, onExit }: { players: PlayerProfile[]; onExit: () =
   const ready = players.every((p) => choices[p.id]);
 
   function choose(playerId: string, snack: Snack) {
-    setChoices((current) => ({ ...current, [playerId]: snack }));
+    setChoices((current) => {
+      if (current[playerId]) return current;
+      return { ...current, [playerId]: snack };
+    });
   }
+
+  useEffect(
+    () =>
+      hardwareBridge.subscribe((event) => {
+        if (event.type !== "key") return;
+        if (event.deckIndex < 0 || event.deckIndex >= players.length) return;
+        if (event.keyIndex < 0 || event.keyIndex >= SNACKS.length) return;
+
+        const player = players[event.deckIndex];
+        choose(player.id, SNACKS[event.keyIndex]);
+      }),
+    [players]
+  );
+
+  useEffect(() => {
+    hardwareBridge.send({
+      type: "moon-munch",
+      players: players.map((player) => ({
+        name: player.name,
+        color: COLOR_HEX[player.color],
+        choiceIndex: choices[player.id] ? SNACKS.findIndex((snack) => snack.id === choices[player.id]?.id) : null
+      }))
+    });
+  }, [players, choices, round]);
 
   function reveal() {
     const a = choices[players[0].id]!;
@@ -224,8 +283,8 @@ function MoonMunch({ players, onExit }: { players: PlayerProfile[]; onExit: () =
                   </button>
                 );
               })}
-              <button className="deck-key utility" disabled>?</button>
-              <button className="deck-key utility" disabled>✓</button>
+              <button className="deck-key utility" disabled>BACK</button>
+              <button className="deck-key utility" disabled>READY</button>
             </div>
             <div className="touch-strip">
               <span>DECK {playerIndex + 1}</span>

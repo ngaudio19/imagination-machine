@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { PlayerProfile } from "../../core/types";
 import { COLOR_HEX } from "../../core/avatars";
 import { hardwareBridge } from "../../core/controllers";
+import { audioEngine } from "../../core/audio";
 import { clampDial, makeCombination, SAFE_ROUNDS, SAFE_SECONDS } from "./game";
 
 type Phase = "cracking" | "open" | "failed" | "finish";
@@ -57,6 +58,7 @@ export function Safecracker({ players, onExit }: { players: PlayerProfile[]; onE
           if (current[globalIndex] === target[globalIndex]) return current;
           const next = [...current] as [number, number, number, number];
           next[globalIndex] = clampDial(next[globalIndex] + Math.sign(event.amount));
+          audioEngine.play(next[globalIndex] === target[globalIndex] ? "lock" : "tick");
           return next;
         });
       }),
@@ -69,12 +71,14 @@ export function Safecracker({ players, onExit }: { players: PlayerProfile[]; onE
     if (complete && !resolving.current) {
       resolving.current = true;
       setCracked((value) => value + 1);
+      audioEngine.play("vault");
       setPhase("open");
       return;
     }
 
     if (secondsLeft <= 0 && !resolving.current) {
       resolving.current = true;
+      audioEngine.play("wrong");
       setPhase("failed");
       return;
     }
@@ -88,6 +92,7 @@ export function Safecracker({ players, onExit }: { players: PlayerProfile[]; onE
 
     const timer = window.setTimeout(() => {
       if (round >= SAFE_ROUNDS) {
+        audioEngine.play("win");
         setPhase("finish");
       } else {
         resetRound(round + 1);

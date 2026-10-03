@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { PlayerProfile } from "../../core/types";
 import { hardwareBridge } from "../../core/controllers";
 import { audioEngine } from "../../core/audio";
+import { MoonMonster } from "../../components/MoonMonster";
 import {
   getMoonHint,
   monsterReaction,
@@ -157,16 +158,7 @@ export function MoonMunch({ players, onExit }: { players: PlayerProfile[]; onExi
           </span>
         </div>
 
-        <div className={`moon-monster ${phase === "reveal" ? "chomp" : ""}`} aria-label="Hungry moon monster">
-          <div className="moon-eye left" />
-          <div className="moon-eye right" />
-          <div className="moon-mouth">
-            <i /><i /><i /><i />
-          </div>
-          <div className="moon-crater crater-a" />
-          <div className="moon-crater crater-b" />
-          <div className="moon-crater crater-c" />
-        </div>
+        <MoonMonster chomping={phase === "reveal"} />
 
         {phase === "finish" ? (
           <div className="monster-speech final-speech">

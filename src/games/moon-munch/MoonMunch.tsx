@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { PlayerProfile } from "../../core/types";
 import { hardwareBridge } from "../../core/controllers";
+import { audioEngine } from "../../core/audio";
 import {
   getMoonHint,
   monsterReaction,
@@ -49,6 +50,7 @@ export function MoonMunch({ players, onExit }: { players: PlayerProfile[]; onExi
     if (phase !== "choose") return;
     setChoices((current) => {
       if (current[deckIndex]) return current;
+      audioEngine.play("select");
       const next = [...current];
       next[deckIndex] = snack;
       return next;
@@ -63,6 +65,7 @@ export function MoonMunch({ players, onExit }: { players: PlayerProfile[]; onExi
     const pointsB = scoreSnack(choices[1], hint);
     setScore(([a, b]) => [a + pointsA, b + pointsB]);
     setResult(monsterReaction(choices, hint));
+    audioEngine.play("munch");
     setPhase("reveal");
   }
 
@@ -106,6 +109,7 @@ export function MoonMunch({ players, onExit }: { players: PlayerProfile[]; onExi
     if (phase !== "reveal") return;
     const timer = window.setTimeout(() => {
       if (round >= MOON_MUNCH_ROUNDS) {
+        audioEngine.play("win");
         setPhase("finish");
         return;
       }

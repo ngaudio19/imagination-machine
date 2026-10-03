@@ -2,14 +2,36 @@
 
 A local-first family game console built around a Mac and multiple Elgato Stream Deck+ controllers.
 
-## Current build
+## Build 0.3
 
-- Pixel-art player lobby with persistent profiles
-- Two physical Stream Deck+ units addressed independently over USB
-- Private per-player buttons and touch-strip feedback
-- Modular deterministic games
-- Shared Mac game board
-- No per-game Stream Deck profile programming
+The experience is now designed to be controller-first. The Mac is the shared world; the Stream Decks are the personal controls.
+
+### Player selection
+
+Each Deck shows the saved player profiles as pixel characters.
+
+- Press a player icon to select that profile.
+- Key 7 opens the character builder.
+- Key 8 submits READY.
+- The app advances only after both Decks are READY.
+- The same profile cannot be chosen by both Decks.
+
+### Character builder
+
+Each profile can choose:
+
+- 12 creatures: cat, dog, fox, frog, bear, bunny, owl, shark, axolotl, raccoon, dinosaur, alien
+- 6 colors
+- 6 accessory choices
+
+The character sprite persists and is reused across the app and Deck UI.
+
+### Universal navigation
+
+- Press the leftmost dial (D1) = Back
+- Press the rightmost dial (D4) = Home
+
+These controls are shown on the Deck+ touch strip.
 
 ### Moon Munch
 
@@ -21,7 +43,7 @@ A 10-question rocket race. Each Deck shows all eight planets as pixel-art answer
 
 ## Run
 
-Quit the Elgato Stream Deck desktop app, then:
+Quit the normal Elgato Stream Deck desktop app, then:
 
 ```bash
 git pull
@@ -31,6 +53,4 @@ npm run dev
 
 Open the local Vite URL shown in Terminal.
 
-The browser is the shared game board. The two Stream Deck+ units are private controllers.
-
-See `docs/HARDWARE.md` for architecture and hardware notes.
+See `docs/HARDWARE.md` for controller architecture.

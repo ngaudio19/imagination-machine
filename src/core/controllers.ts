@@ -65,12 +65,37 @@ export type PlanetTriviaRenderMessage = {
   }>;
 };
 
+export type SafecrackerRenderMessage = {
+  type: "safecracker";
+  phase: "cracking" | "open" | "failed" | "finish";
+  round: number;
+  secondsLeft: number;
+  target: [number, number, number, number];
+  digits: [number, number, number, number];
+  locked: [boolean, boolean, boolean, boolean];
+  safesCracked: number;
+  players: DeckProfile[];
+};
+
+export type HotPotatoRenderMessage = {
+  type: "hot-potato";
+  phase: "play" | "boom" | "finish";
+  round: number;
+  holderDeck: number;
+  hotButton: number;
+  fuseRatio: number;
+  scores: [number, number];
+  players: DeckProfile[];
+};
+
 export type HardwareRenderMessage =
   | LobbyRenderMessage
   | BuilderRenderMessage
   | MenuRenderMessage
   | MoonMunchRenderMessage
-  | PlanetTriviaRenderMessage;
+  | PlanetTriviaRenderMessage
+  | SafecrackerRenderMessage
+  | HotPotatoRenderMessage;
 
 export type HardwareListener = (event: HardwareEvent) => void;
 

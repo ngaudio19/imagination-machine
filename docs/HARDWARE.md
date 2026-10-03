@@ -1,12 +1,12 @@
 # Stream Deck+ hardware mode
 
-Imagination Machine talks directly to the two Stream Deck+ units over USB.
+Imagination Machine talks directly to multiple Stream Deck+ units over USB.
 
-This deliberately avoids per-game Stream Deck profiles. The game engine owns the hardware while it is running and can redraw every key, read each key press, read dial events, and use the LCD touch strip.
+This deliberately avoids per-game Stream Deck profiles. The game engine owns the hardware while it is running and can redraw every key, read key presses and dials, and draw custom status/progress UI on the LCD touch strip.
 
 ## Important
 
-Quit the Elgato Stream Deck desktop app before starting Imagination Machine. Both programs want to control the same USB devices.
+Quit the Elgato Stream Deck desktop app before starting Imagination Machine. Both programs want exclusive access to the same USB devices.
 
 ## Run
 
@@ -18,25 +18,31 @@ npm install
 npm run dev
 ```
 
-`npm run dev` starts two local processes:
+`npm run dev` starts:
 
-- Vite shared-screen app
-- direct Stream Deck hardware bridge on `ws://127.0.0.1:3210`
+- the Vite shared-screen app
+- the direct Stream Deck hardware bridge on `ws://127.0.0.1:3210`
 
 Open the Vite local URL in the browser.
 
-## First hardware test
+## Current controller behavior
 
-1. Connect both Stream Deck+ units over USB.
-2. Quit the Elgato Stream Deck app.
-3. Run `npm run dev`.
-4. In the browser lobby, both controller indicators should switch from OFFLINE to CONNECTED.
-5. Select two players and open Moon Munch.
-6. Each physical Deck should show six private snack cards.
-7. Press a snack on Deck 1 and Deck 2.
-8. The shared screen should register each player's hidden selection independently.
+### Game menu
+- Key 1 launches Moon Munch.
+- Key 2 launches Planet Trivia.
 
-The final two keys are reserved for game-level utilities.
+### Moon Munch
+- First six keys are illustrated private snack cards.
+- Selected card stays highlighted; the others dim.
+- Touch strip shows player score, timer/status, and lock-in state.
+- On the final screen: key 7 replays; key 8 returns to games.
+
+### Planet Trivia
+- All eight keys are illustrated planet answers.
+- Correct planet lights up during reveal.
+- Touch strip displays the player's fuel total and progress bar.
+- Wrong answers do not reduce fuel.
+- On the final screen: key 7 replays; key 8 returns to games.
 
 ## Architecture
 

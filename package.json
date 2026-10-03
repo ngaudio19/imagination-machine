@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "concurrently -k -n WEB,DECK \"npm:dev:web\" \"npm:dev:deck\"",
-    "dev:web": "vite",
+    "dev:web": "vite --open",
     "dev:deck": "tsx bridge/streamdeck.ts",
     "build": "tsc -b && vite build",
     "preview": "vite preview"

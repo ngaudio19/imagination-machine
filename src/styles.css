@@ -59,7 +59,7 @@ h2 { font-size: clamp(18px, 3vw, 30px); margin: 8px 0 22px; line-height: 1.35; }
 
 .controller-rack { display: flex; gap: 12px; margin: 20px 0; flex-wrap: wrap; }
 .controller-chip { border: 2px solid #30303d; background: #08080d; padding: 10px 12px; color: #aaaabd; font-size: 8px; }
-.status-dot { display: inline-block; width: 8px; height: 8px; background: var(--lime); margin-right: 8px; box-shadow: 0 0 8px var(--lime); }
+.status-dot { display: inline-block; width: 8px; height: 8px; background: var(--lime); margin-right: 8px; box-shadow: 0 0 8px var(--lime); }\n.status-dot.offline { background: #4a4a58; box-shadow: none; }
 
 .primary { display: inline-block; border: 0; background: var(--yellow); color: #07070b; padding: 16px 22px; box-shadow: 5px 5px 0 #7b6813; cursor: pointer; font-size: 10px; }
 .primary:disabled { opacity: .3; cursor: default; }

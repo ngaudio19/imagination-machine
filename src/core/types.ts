@@ -1,20 +1,17 @@
 export type PlayerColor = "violet" | "cyan" | "lime" | "yellow" | "pink" | "blue";
-export type PlayerAvatar = "cat" | "fox" | "frog" | "moon" | "ghost" | "robot";
+export type PlayerAvatar =
+  | "cat" | "dog" | "fox" | "frog" | "bear" | "bunny"
+  | "owl" | "shark" | "axolotl" | "raccoon" | "dino" | "alien";
+export type PlayerAccessory = "none" | "crown" | "glasses" | "cape" | "cap" | "star";
 
 export interface PlayerProfile {
   id: string;
   name: string;
   color: PlayerColor;
   avatar: PlayerAvatar;
+  accessory: PlayerAccessory;
   wins: number;
   gamesPlayed: number;
-}
-
-export interface ControllerSlot {
-  id: string;
-  label: string;
-  connected: boolean;
-  playerId?: string;
 }
 
 export interface GameDefinition {

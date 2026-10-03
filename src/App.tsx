@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import type { PlayerAvatar, PlayerColor, PlayerProfile } from "./core/types";
 import { hardwareBridge, type HardwareDeck } from "./core/controllers";
 import { ACCESSORIES, AVATARS, COLOR_HEX, PLAYER_COLORS } from "./core/avatars";
@@ -296,7 +296,7 @@ function App() {
         </header>
 
         <section className="panel builder-panel">
-          <div className="builder-preview theme-preview" style={{ "--preview-color": COLOR_HEX[profile.color] } as React.CSSProperties}>
+          <div className="builder-preview theme-preview" style={{ "--preview-color": COLOR_HEX[profile.color] } as CSSProperties}>
             <PixelAvatar
               avatar={profile.avatar}
               color={COLOR_HEX[profile.color]}

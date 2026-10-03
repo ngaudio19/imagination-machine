@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { PlayerProfile } from "../../core/types";
 import { hardwareBridge } from "../../core/controllers";
+import { audioEngine } from "../../core/audio";
 import {
   fuelForAnswer,
   PLANETS,
@@ -68,6 +69,7 @@ export function PlanetTrivia({ players, onExit }: { players: PlayerProfile[]; on
     nextTimes[deckIndex] = elapsed;
     answersRef.current = nextAnswers;
     answerTimesRef.current = nextTimes;
+    audioEngine.play("select");
     setAnswers(nextAnswers);
     setAnswerTimes(nextTimes);
   }
@@ -85,6 +87,7 @@ export function PlanetTrivia({ players, onExit }: { players: PlayerProfile[]; on
 
     setEarned(gains);
     setFuel(([a, b]) => [a + gains[0], b + gains[1]]);
+    audioEngine.play(gains[0] > 0 || gains[1] > 0 ? "correct" : "wrong");
     setPhase("reveal");
   }
 
@@ -128,6 +131,7 @@ export function PlanetTrivia({ players, onExit }: { players: PlayerProfile[]; on
     if (phase !== "reveal") return;
     const timer = window.setTimeout(() => {
       if (questionIndex >= PLANET_QUESTIONS.length - 1) {
+        audioEngine.play("win");
         setPhase("finish");
       } else {
         resetQuestion(questionIndex + 1);

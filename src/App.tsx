@@ -106,7 +106,7 @@ function App() {
         <div>
           <p className="eyebrow">THE</p>
           <h1>IMAGINATION MACHINE</h1>
-          <p className="tagline">INSERT HUMANS · MAKE MISCHIEF</p>
+          <p className="tagline">INSERT HUMANS · MAKE MISCHIEF · BUILD 0.2</p>
         </div>
       </header>
 

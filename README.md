@@ -22,4 +22,4 @@ npm install
 npm run dev
 ```
 
-The first browser build includes simulated controllers so game logic and UI can be tested before the physical Stream Deck bridge is complete.
+The browser includes simulated controllers for development, and the local hardware bridge can directly control multiple Stream Deck+ units over USB. Quit the Elgato Stream Deck desktop app while using hardware mode. See `docs/HARDWARE.md`.

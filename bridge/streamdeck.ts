@@ -70,9 +70,15 @@ wss.on("connection", (socket) => {
   socket.on("message", async (data) => {
     try {
       lastState = JSON.parse(String(data)) as ClientMessage;
-      await renderAll();
     } catch (error) {
       console.error("[bridge] bad message", error);
+      return;
+    }
+
+    try {
+      await renderAll();
+    } catch (error) {
+      console.error("[bridge] render failed", error);
     }
   });
 
@@ -210,7 +216,7 @@ async function renderWaiting(deckIndex: number) {
     })
   );
 
-  await renderStrip(entry.deck, "IMAGINATION MACHINE", "WAITING FOR GAME", "#ffe44a");
+  await safeRenderStrip(entry.deck, "IMAGINATION MACHINE", "WAITING FOR GAME", "#ffe44a");
 }
 
 async function renderLobby(deckIndex: number, state: Extract<ClientMessage, { type: "lobby" }>) {
@@ -222,7 +228,7 @@ async function renderLobby(deckIndex: number, state: Extract<ClientMessage, { ty
   const name = player?.name?.toUpperCase() ?? `PLAYER ${deckIndex + 1}`;
 
   await renderAllTextKeys(entry.deck, name, player ? "READY" : "WAITING", accent);
-  await renderStrip(entry.deck, name, player ? "PLAYER READY" : "CHOOSE ON MAC", accent);
+  await safeRenderStrip(entry.deck, name, player ? "PLAYER READY" : "CHOOSE ON MAC", accent);
 }
 
 async function renderMenu(deckIndex: number, state: Extract<ClientMessage, { type: "menu" }>) {
@@ -254,7 +260,7 @@ async function renderMenu(deckIndex: number, state: Extract<ClientMessage, { typ
     })
   );
 
-  await renderStrip(entry.deck, player?.name?.toUpperCase() ?? `PLAYER ${deckIndex + 1}`, "PICK A GAME", accent);
+  await safeRenderStrip(entry.deck, player?.name?.toUpperCase() ?? `PLAYER ${deckIndex + 1}`, "PICK A GAME", accent);
 }
 
 async function renderMoonMunch(deckIndex: number, state: Extract<ClientMessage, { type: "moon-munch" }>) {
@@ -309,7 +315,7 @@ async function renderMoonMunch(deckIndex: number, state: Extract<ClientMessage, 
         ? "LOOK UP! MUNCH TIME"
         : `FINAL SCORE · ${player.score}`;
 
-  await renderStrip(entry.deck, `${player.name.toUpperCase()} · ${player.score} PTS`, status, player.color);
+  await safeRenderStrip(entry.deck, `${player.name.toUpperCase()} · ${player.score} PTS`, status, player.color);
 }
 
 async function renderPlanetTrivia(deckIndex: number, state: Extract<ClientMessage, { type: "planet-trivia" }>) {
@@ -356,7 +362,7 @@ async function renderPlanetTrivia(deckIndex: number, state: Extract<ClientMessag
         ? "CHECK THE BIG SCREEN"
         : "MISSION COMPLETE";
 
-  await renderFuelStrip(entry.deck, player.name.toUpperCase(), status, player.color, player.fuel, player.maxFuel);
+  await safeRenderFuelStrip(entry.deck, player.name.toUpperCase(), status, player.color, player.fuel, player.maxFuel);
 }
 
 function getButtonControls(deck: StreamDeck) {
@@ -381,6 +387,29 @@ async function renderAllTextKeys(deck: StreamDeck, top: string, bottom: string, 
   );
 }
 
+async function safeRenderStrip(deck: StreamDeck, left: string, right: string, accent: string) {
+  try {
+    await renderStrip(deck, left, right, accent);
+  } catch (error) {
+    console.warn("[bridge] touch strip render skipped:", error instanceof Error ? error.message : error);
+  }
+}
+
+async function safeRenderFuelStrip(
+  deck: StreamDeck,
+  name: string,
+  status: string,
+  accent: string,
+  fuel: number,
+  maxFuel: number
+) {
+  try {
+    await renderFuelStrip(deck, name, status, accent, fuel, maxFuel);
+  } catch (error) {
+    console.warn("[bridge] fuel strip render skipped:", error instanceof Error ? error.message : error);
+  }
+}
+
 async function renderStrip(deck: StreamDeck, left: string, right: string, accent: string) {
   const lcd = deck.CONTROLS.find((control) => control.type === "lcd-segment");
   if (!lcd) return;
@@ -395,7 +424,7 @@ async function renderStrip(deck: StreamDeck, left: string, right: string, accent
   `;
 
   const raw = await sharp(Buffer.from(svg)).removeAlpha().raw().toBuffer();
-  await deck.fillLcd(lcd.index, raw, { format: "rgb" });
+  await deck.fillLcd(Number(lcd.id), raw, { format: "rgb" });
 }
 
 async function renderFuelStrip(
@@ -423,7 +452,7 @@ async function renderFuelStrip(
   `;
 
   const raw = await sharp(Buffer.from(svg)).removeAlpha().raw().toBuffer();
-  await deck.fillLcd(lcd.index, raw, { format: "rgb" });
+  await deck.fillLcd(Number(lcd.id), raw, { format: "rgb" });
 }
 
 async function makeTextTile(

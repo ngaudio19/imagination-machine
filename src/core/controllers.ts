@@ -16,12 +16,41 @@ export type LobbyRenderMessage = {
   players: Array<{ name: string; color: string }>;
 };
 
-export type MoonMunchRenderMessage = {
-  type: "moon-munch";
-  players: Array<{ name: string; color: string; choiceIndex: number | null }>;
+export type MenuRenderMessage = {
+  type: "menu";
+  players: Array<{ name: string; color: string }>;
 };
 
-export type HardwareRenderMessage = LobbyRenderMessage | MoonMunchRenderMessage;
+export type MoonMunchRenderMessage = {
+  type: "moon-munch";
+  phase: "choose" | "reveal" | "finish";
+  round: number;
+  secondsLeft: number;
+  hint: string;
+  players: Array<{ name: string; color: string; choiceIndex: number | null; score: number }>;
+};
+
+export type PlanetTriviaRenderMessage = {
+  type: "planet-trivia";
+  phase: "question" | "reveal" | "finish";
+  question: string;
+  secondsLeft: number;
+  correctIndex: number | null;
+  players: Array<{
+    name: string;
+    color: string;
+    answerIndex: number | null;
+    fuel: number;
+    maxFuel: number;
+  }>;
+};
+
+export type HardwareRenderMessage =
+  | LobbyRenderMessage
+  | MenuRenderMessage
+  | MoonMunchRenderMessage
+  | PlanetTriviaRenderMessage;
+
 export type HardwareListener = (event: HardwareEvent) => void;
 
 class HardwareBridge {

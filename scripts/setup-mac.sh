@@ -10,6 +10,14 @@ if [ ! -f "$HOME/.zshrc" ]; then
   touch "$HOME/.zshrc"
 fi
 
+if ! grep -q 'NVM_DIR="$HOME/.nvm"' "$HOME/.zshrc"; then
+  {
+    echo ''
+    echo 'export NVM_DIR="$HOME/.nvm"'
+    echo '[ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"'
+  } >> "$HOME/.zshrc"
+fi
+
 # Load an existing nvm install if available.
 if [ -s "$NVM_DIR/nvm.sh" ]; then
   # shellcheck disable=SC1090

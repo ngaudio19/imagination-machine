@@ -60,6 +60,7 @@ const clients = new Set<WebSocket>();
 const decks: DeckEntry[] = [];
 let lastState: ClientMessage | null = null;
 let connecting = false;
+const disconnecting = new Set<string>();
 
 const wss = new WebSocketServer({ port: PORT });
 
@@ -114,28 +115,70 @@ function sendStatus(socket?: WebSocket) {
   }
 }
 
+async function disconnectDeck(serial: string, reason?: unknown) {
+  if (disconnecting.has(serial)) return;
+  disconnecting.add(serial);
+
+  try {
+    const index = decks.findIndex((entry) => entry.serial === serial);
+    if (index === -1) return;
+
+    const [entry] = decks.splice(index, 1);
+    console.warn(
+      `[bridge] disconnected: ${serial}${reason instanceof Error ? ` · ${reason.message}` : ""}`
+    );
+
+    await entry.deck.close().catch(() => undefined);
+    sendStatus();
+  } finally {
+    disconnecting.delete(serial);
+  }
+}
+
 async function scanAndConnect() {
   if (connecting) return;
   connecting = true;
 
   try {
     const found = await listStreamDecks();
-    const known = new Set(decks.map((deck) => deck.path));
+    const foundPaths = new Set(found.map((device) => device.path));
+
+    // Drop handles for devices that are no longer physically present.
+    for (const entry of [...decks]) {
+      if (!foundPaths.has(entry.path)) {
+        await disconnectDeck(entry.serial, new Error("USB device removed"));
+      }
+    }
+
+    const knownPaths = new Set(decks.map((deck) => deck.path));
 
     for (const device of found) {
-      if (known.has(device.path)) continue;
+      if (knownPaths.has(device.path)) continue;
+
+      let deck: StreamDeck | null = null;
+      let serial = device.serialNumber ?? device.path;
 
       try {
-        const deck = await openStreamDeck(device.path, { resetToLogoOnClose: true });
-        const serial = (await deck.getSerialNumber().catch(() => device.serialNumber ?? device.path)) || device.path;
+        deck = await openStreamDeck(device.path, { resetToLogoOnClose: true });
+        serial = (await deck.getSerialNumber().catch(() => serial)) || serial;
+
+        // Prove the new handle is writable before adding it to active state.
+        await deck.setBrightness(75);
+        await deck.clearPanel();
+
         const entry: DeckEntry = { path: device.path, serial, deck };
         decks.push(entry);
         decks.sort((a, b) => a.serial.localeCompare(b.serial));
 
-        deck.on("error", (error) => console.error(`[bridge] device ${serial} error`, error));
+        deck.on("error", (error) => {
+          console.error(`[bridge] device ${serial} error`, error);
+          void disconnectDeck(serial, error);
+        });
 
         deck.on("down", (control) => {
           const deckIndex = decks.findIndex((item) => item.serial === serial);
+          if (deckIndex < 0) return;
+
           if (control.type === "button") {
             broadcast({ type: "key", deckIndex, keyIndex: control.index });
           } else if (control.type === "encoder") {
@@ -145,20 +188,22 @@ async function scanAndConnect() {
 
         deck.on("rotate", (control, amount) => {
           const deckIndex = decks.findIndex((item) => item.serial === serial);
+          if (deckIndex < 0) return;
           broadcast({ type: "dial", deckIndex, dialIndex: control.index, amount });
         });
 
         deck.on("lcdShortPress", (_control, position) => {
           const deckIndex = decks.findIndex((item) => item.serial === serial);
+          if (deckIndex < 0) return;
           broadcast({ type: "touch", deckIndex, x: position.x, y: position.y });
         });
 
-        await deck.setBrightness(75).catch(() => undefined);
-        await deck.clearPanel().catch(() => undefined);
         console.log(`[bridge] connected: ${deck.PRODUCT_NAME} · ${serial}`);
         sendStatus();
         await renderAll();
       } catch (error) {
+        if (deck) await deck.close().catch(() => undefined);
+
         console.error(
           "[bridge] found a Stream Deck but could not open it. If the Elgato Stream Deck app is running, quit it and retry.",
           error
@@ -176,27 +221,35 @@ setInterval(scanAndConnect, 2500);
 void scanAndConnect();
 
 async function renderAll() {
-  if (!lastState) {
-    await Promise.all(decks.map((_, index) => renderWaiting(index)));
-    return;
-  }
+  const active = [...decks];
 
-  if (lastState.type === "lobby") {
-    await Promise.all(decks.map((_, index) => renderLobby(index, lastState as Extract<ClientMessage, { type: "lobby" }>)));
-    return;
-  }
+  await Promise.all(
+    active.map(async (entry) => {
+      const deckIndex = decks.findIndex((item) => item.serial === entry.serial);
+      if (deckIndex < 0) return;
 
-  if (lastState.type === "menu") {
-    await Promise.all(decks.map((_, index) => renderMenu(index, lastState as Extract<ClientMessage, { type: "menu" }>)));
-    return;
-  }
+      try {
+        if (!lastState) {
+          await renderWaiting(deckIndex);
+        } else if (lastState.type === "lobby") {
+          await renderLobby(deckIndex, lastState as Extract<ClientMessage, { type: "lobby" }>);
+        } else if (lastState.type === "menu") {
+          await renderMenu(deckIndex, lastState as Extract<ClientMessage, { type: "menu" }>);
+        } else if (lastState.type === "moon-munch") {
+          await renderMoonMunch(deckIndex, lastState as Extract<ClientMessage, { type: "moon-munch" }>);
+        } else {
+          await renderPlanetTrivia(deckIndex, lastState as Extract<ClientMessage, { type: "planet-trivia" }>);
+        }
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        console.error(`[bridge] render failed for ${entry.serial}:`, error);
 
-  if (lastState.type === "moon-munch") {
-    await Promise.all(decks.map((_, index) => renderMoonMunch(index, lastState as Extract<ClientMessage, { type: "moon-munch" }>)));
-    return;
-  }
-
-  await Promise.all(decks.map((_, index) => renderPlanetTrivia(index, lastState as Extract<ClientMessage, { type: "planet-trivia" }>)));
+        if (/disconnected|hid|device/i.test(message)) {
+          await disconnectDeck(entry.serial, error);
+        }
+      }
+    })
+  );
 }
 
 async function renderWaiting(deckIndex: number) {

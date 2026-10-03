@@ -5,8 +5,13 @@ echo "== Imagination Machine setup =="
 
 export NVM_DIR="${NVM_DIR:-$HOME/.nvm}"
 
-# Load an existing nvm install if the shell has not loaded it yet.
-if ! command -v nvm >/dev/null 2>&1 && [ -s "$NVM_DIR/nvm.sh" ]; then
+# Ensure the default macOS shell profile exists so nvm can register itself.
+if [ ! -f "$HOME/.zshrc" ]; then
+  touch "$HOME/.zshrc"
+fi
+
+# Load an existing nvm install if available.
+if [ -s "$NVM_DIR/nvm.sh" ]; then
   # shellcheck disable=SC1090
   . "$NVM_DIR/nvm.sh"
 fi
@@ -15,7 +20,7 @@ fi
 if ! command -v nvm >/dev/null 2>&1; then
   echo
   echo "Installing nvm v0.40.8..."
-  curl -fsSL https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.8/install.sh | bash
+  curl -fsSL https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.8/install.sh | bash || true
 
   export NVM_DIR="$HOME/.nvm"
   if [ -s "$NVM_DIR/nvm.sh" ]; then
@@ -26,8 +31,10 @@ fi
 
 if ! command -v nvm >/dev/null 2>&1; then
   echo
-  echo "nvm was installed but could not be loaded automatically."
-  echo "Close and reopen Terminal, then rerun: bash scripts/setup-mac.sh"
+  echo "nvm could not be loaded automatically."
+  echo "Run these commands, then rerun this script:"
+  echo '  export NVM_DIR="$HOME/.nvm"'
+  echo '  [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"'
   exit 1
 fi
 

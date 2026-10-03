@@ -9,6 +9,7 @@ import { PlanetTrivia } from "./games/planet-trivia/PlanetTrivia";
 import { Safecracker } from "./games/safecracker/Safecracker";
 import { HotPotato } from "./games/hot-potato/HotPotato";
 import { PixelAvatar } from "./components/PixelAvatar";
+import { audioEngine, type AudioScene } from "./core/audio";
 
 type Screen = "lobby" | "builder" | "menu" | "moon-munch" | "planet-trivia" | "safecracker" | "hot-potato";
 
@@ -26,13 +27,34 @@ function App() {
   const [lobbySelections, setLobbySelections] = useState<Array<string | null>>([null, null]);
   const [lobbyReady, setLobbyReady] = useState<[boolean, boolean]>([false, false]);
   const [builder, setBuilder] = useState<BuilderState | null>(null);
+  const [audioReady, setAudioReady] = useState(false);
 
   useEffect(() => savePlayers(players), [players]);
+
+  useEffect(() => {
+    audioEngine.setScene(screen as AudioScene);
+  }, [screen]);
+
+  async function wakeAudio() {
+    const ready = await audioEngine.unlock();
+    setAudioReady(ready);
+  }
+
+  useEffect(() => {
+    const wake = () => { void wakeAudio(); };
+    window.addEventListener("pointerdown", wake, { once: true });
+    window.addEventListener("keydown", wake, { once: true });
+    return () => {
+      window.removeEventListener("pointerdown", wake);
+      window.removeEventListener("keydown", wake);
+    };
+  }, []);
 
   useEffect(
     () =>
       hardwareBridge.subscribe((event) => {
         if (event.type === "status") setHardwareDecks(event.decks);
+        else void wakeAudio();
       }),
     []
   );
@@ -58,12 +80,14 @@ function App() {
   );
 
   function goHome() {
+    audioEngine.play("back");
     setBuilder(null);
     setLobbyReady([false, false]);
     setScreen("lobby");
   }
 
   function goBack() {
+    audioEngine.play("back");
     if (screen === "builder") {
       setBuilder(null);
       setScreen("lobby");
@@ -150,12 +174,14 @@ function App() {
         const player = players[event.keyIndex];
         if (lobbySelections[otherIndex] === player.id) return;
 
+        audioEngine.play("select");
         setLobbySelections((current) => {
           const next = [...current];
           next[deckIndex] = player.id;
           return next;
         });
 
+        audioEngine.play(lobbyReady[deckIndex] ? "back" : "ready");
         setLobbyReady((current) => {
           const next = [...current] as [boolean, boolean];
           next[deckIndex] = false;
@@ -167,6 +193,7 @@ function App() {
       if (event.keyIndex === 6) {
         const selectedId = lobbySelections[deckIndex];
         if (!selectedId || lobbyReady[deckIndex]) return;
+        audioEngine.play("select");
         setBuilder({ deckIndex, playerId: selectedId, stage: "species", page: 0 });
         setScreen("builder");
         return;
@@ -190,6 +217,7 @@ function App() {
     if (!lobbySelections[0] || !lobbySelections[1]) return;
     if (lobbySelections[0] === lobbySelections[1]) return;
 
+    audioEngine.play("start");
     const timer = window.setTimeout(() => setScreen("menu"), 450);
     return () => window.clearTimeout(timer);
   }, [screen, lobbyReady, lobbySelections]);
@@ -251,6 +279,7 @@ function App() {
 
     return hardwareBridge.subscribe((event) => {
       if (event.type !== "key") return;
+      if (event.keyIndex >= 0 && event.keyIndex <= 3) audioEngine.play("start");
       if (event.keyIndex === 0) setScreen("moon-munch");
       if (event.keyIndex === 1) setScreen("planet-trivia");
       if (event.keyIndex === 2) setScreen("safecracker");
@@ -297,7 +326,7 @@ function App() {
     if (!profile) return null;
 
     return (
-      <main className="shell builder-shell">
+      <main className="shell builder-shell" onPointerDown={() => { void wakeAudio(); }}>
         <header className="brand">
           <div className="brand-mark">✦</div>
           <div>
@@ -305,6 +334,13 @@ function App() {
             <h1>{profile.name.toUpperCase()}</h1>
             <p className="tagline">CONTROLLED BY DECK {builder.deckIndex + 1}</p>
           </div>
+          <button
+            className={audioReady ? "sound-pill active" : "sound-pill"}
+            type="button"
+            onClick={() => { void wakeAudio(); }}
+          >
+            {audioReady ? "♪ SOUND ON" : "♪ CLICK ONCE FOR SOUND"}
+          </button>
         </header>
 
         <section className="panel builder-panel">
@@ -340,7 +376,7 @@ function App() {
   }
 
   return (
-    <main className="shell">
+    <main className="shell" onPointerDown={() => { void wakeAudio(); }}>
       <header className="brand">
         <div className="brand-mark">✦</div>
         <div>
@@ -348,6 +384,13 @@ function App() {
           <h1>IMAGINATION MACHINE</h1>
           <p className="tagline">INSERT HUMANS · MAKE MISCHIEF · BUILD 0.4</p>
         </div>
+        <button
+          className={audioReady ? "sound-pill active" : "sound-pill"}
+          type="button"
+          onClick={() => { void wakeAudio(); }}
+        >
+          {audioReady ? "♪ SOUND ON" : "♪ CLICK ONCE FOR SOUND"}
+        </button>
       </header>
 
       {screen === "lobby" && (

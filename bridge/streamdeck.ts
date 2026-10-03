@@ -86,7 +86,7 @@ wss.on("connection", (socket) => {
   socket.on("close", () => clients.delete(socket));
 });
 
-console.log(`[bridge] listening at ws://127.0.0.1:${PORT}`);
+console.log(`[bridge] Imagination Machine v0.2 · listening at ws://127.0.0.1:${PORT}`);
 
 function broadcast(message: unknown) {
   const payload = JSON.stringify(message);
